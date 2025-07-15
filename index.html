@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Nirakar Attendance</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f0f8ff;
+      margin: 0;
+      padding: 0;
+    }
+    header {
+      background: #004080;
+      color: white;
+      padding: 10px 20px;
+      text-align: center;
+    }
+    .container {
+      padding: 20px;
+    }
+    input, button {
+      padding: 10px;
+      margin: 5px 0;
+      width: 100%;
+      max-width: 300px;
+      display: block;
+    }
+    .hidden { display: none; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+    }
+    table, th, td {
+      border: 1px solid #004080;
+    }
+    th, td {
+      padding: 8px;
+      text-align: center;
+    }
+    .admin-section {
+      background: #e6f2ff;
+      padding: 10px;
+    }
+    .user-section {
+      background: #f9ffe6;
+      padding: 10px;
+    }
+  </style>
+</head>
+<body>
+<header><h2>Nirakar Attendance App</h2></header>
+
+<div class="container">
+  <div id="loginBox">
+    <h3>Login</h3>
+    <input type="email" id="email" placeholder="Enter Email" required />
+    <input type="password" id="password" placeholder="Enter Password" required />
+    <button onclick="login()">Login</button>
+    <p id="loginMsg"></p>
+  </div>
+
+  <div id="userBox" class="hidden user-section">
+    <h3>Welcome, <span id="userEmail"></span></h3>
+    <p id="checkInStatus"></p>
+    <button onclick="checkIn()">Check-In</button>
+    <button onclick="checkOut()">Check-Out</button>
+    <p id="locationLog"></p>
+    <table id="userTable">
+      <thead>
+        <tr>
+          <th>Day</th>
+          <th>Check-in</th>
+          <th>Check-out</th>
+          <th>Work Hours</th>
+          <th>Location</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+    <button onclick="logout()">Logout</button>
+  </div>
+
+  <div id="adminBox" class="hidden admin-section">
+    <h3>Admin Panel</h3>
+    <table id="adminTable">
+      <thead>
+        <tr>
+          <th>Email</th>
+          <th>Day</th>
+          <th>Check-in</th>
+          <th>Check-out</th>
+          <th>Work Hours</th>
+          <th>Location</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+    <button onclick="logout()">Logout</button>
+  </div>
+</div>
+
+<script>
+  const users = {
+    "admin@nirakar.com": "nirakaradmins",
+    "rita@nirakar.com": "rita123",
+    "padam@nirakar.com": "padam123",
+    "anisha@nirakar.com": "anisha123",
+    "yasoda@nirakar.com": "yasoda123",
+    "anjali@nirakar.com": "anjali123",
+    "binita@nirakar.com": "binita123",
+    "lakpa@nirakar.com": "lakpa123",
+    "lila@nirakar.com": "lila123",
+    "tiwari@nirakar.com": "tiwari123",
+    "bir@nirakar.com": "bir123"
+  };
+
+  let currentUser = null;
+  const storage = JSON.parse(localStorage.getItem("attendanceData") || "{}");
+
+  function login() {
+    const email = emailInput.value.trim();
+    const pass = password.value.trim();
+
+    if (users[email] === pass) {
+      currentUser = email;
+      document.getElementById("loginBox").classList.add("hidden");
+
+      if (email.startsWith("admin@")) {
+        document.getElementById("adminBox").classList.remove("hidden");
+        loadAdminTable();
+      } else {
+        document.getElementById("userBox").classList.remove("hidden");
+        document.getElementById("userEmail").innerText = email;
+        loadUserTable();
+      }
+    } else {
+      loginMsg.innerText = "Invalid credentials!";
+    }
+  }
+
+  function logout() {
+    currentUser = null;
+    document.getElementById("loginBox").classList.remove("hidden");
+    document.getElementById("userBox").classList.add("hidden");
+    document.getElementById("adminBox").classList.add("hidden");
+  }
+
+  function getToday() {
+    const d = new Date();
+    return d.toLocaleDateString("en-GB");
+  }
+
+  function getDayName() {
+    return new Date().toLocaleDateString("en-GB", { weekday: 'long' });
+  }
+
+  function checkIn() {
+    if (!navigator.geolocation) return alert("Location not supported");
+
+    navigator.geolocation.getCurrentPosition((pos) => {
+      const lat = pos.coords.latitude.toFixed(6);
+      const lng = pos.coords.longitude.toFixed(6);
+      const time = new Date().toLocaleTimeString();
+      const today = getToday();
+
+      if (!storage[currentUser]) storage[currentUser] = {};
+      if (!storage[currentUser][today]) {
+        storage[currentUser][today] = {
+          day: getDayName(),
+          checkIn: time,
+          checkOut: "",
+          location: `${lat}, ${lng}`
+        };
+        localStorage.setItem("attendanceData", JSON.stringify(storage));
+        loadUserTable();
+      } else {
+        alert("Already checked in today!");
+      }
+    });
+  }
+
+  function checkOut() {
+    const today = getToday();
+    const time = new Date().toLocaleTimeString();
+
+    if (storage[currentUser] && storage[currentUser][today]) {
+      if (!storage[currentUser][today].checkOut) {
+        storage[currentUser][today].checkOut = time;
+        const inTime = new Date(`${today} ${storage[currentUser][today].checkIn}`);
+        const outTime = new Date(`${today} ${time}`);
+        const hrs = ((outTime - inTime) / 3600000).toFixed(2);
+        storage[currentUser][today].hours = hrs;
+        localStorage.setItem("attendanceData", JSON.stringify(storage));
+        loadUserTable();
+      } else {
+        alert("Already checked out today!");
+      }
+    } else {
+      alert("Please check in first!");
+    }
+  }
+
+  function loadUserTable() {
+    const tbody = document.querySelector("#userTable tbody");
+    tbody.innerHTML = "";
+    const data = storage[currentUser] || {};
+
+    for (let date in data) {
+      const row = data[date];
+      const tr = `<tr>
+        <td>${row.day}</td>
+        <td>${row.checkIn || ""}</td>
+        <td>${row.checkOut || ""}</td>
+        <td>${row.hours || ""}</td>
+        <td>${row.location || ""}</td>
+      </tr>`;
+      tbody.innerHTML += tr;
+    }
+  }
+
+  function loadAdminTable() {
+    const tbody = document.querySelector("#adminTable tbody");
+    tbody.innerHTML = "";
+
+    for (let user in storage) {
+      for (let date in storage[user]) {
+        const row = storage[user][date];
+        const tr = `<tr>
+          <td>${user}</td>
+          <td>${row.day}</td>
+          <td>${row.checkIn}</td>
+          <td>${row.checkOut || ""}</td>
+          <td>${row.hours || ""}</td>
+          <td>${row.location || ""}</td>
+        </tr>`;
+        tbody.innerHTML += tr;
+      }
+    }
+  }
+</script>
+</body>
+</html>
